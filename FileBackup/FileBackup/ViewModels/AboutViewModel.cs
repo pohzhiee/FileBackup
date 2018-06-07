@@ -18,9 +18,8 @@ namespace FileBackup.ViewModels
             get
             {
                 return "FileBackup" + Environment.NewLine +
-                        "Created by zhieepoh" + Environment.NewLine +
-                        "Address" + Environment.NewLine +
-                        "2018";
+                       "Created by Poh Zhi-Ee" + Environment.NewLine +
+                       "2018";
             }
         }
 
