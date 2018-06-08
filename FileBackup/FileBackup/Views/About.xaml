@@ -9,6 +9,6 @@
 
     <StackPanel>
         <TextBlock TextAlignment="Center" Text="{Binding Content}" />
-        <TextBlock TextAlignment="Center" Text="{Binding VersionText}" Margin="0,40,0,0" />
+        <TextBlock TextAlignment="Center" Text="{Binding VersionText}"/>
     </StackPanel>
 </Window>

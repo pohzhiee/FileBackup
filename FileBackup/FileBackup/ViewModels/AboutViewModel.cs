@@ -1,5 +1,7 @@
 ﻿using MvvmDialogs;
 using System;
+using System.Deployment.Application;
+using System.Reflection;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -27,13 +29,17 @@ namespace FileBackup.ViewModels
         {
             get
             {
-                var version1 = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-
-                // For external assemblies
-                // var ver2 = typeof(Assembly1.ClassOfAssembly1).Assembly.GetName().Version;
-                // var ver3 = typeof(Assembly2.ClassOfAssembly2).Assembly.GetName().Version;
-                var k = new FileBackup.Converters.InverseBoolConverter();
-                return "FileBackup v" + version1.ToString();
+                Version version;
+                try
+                {
+                    version =  ApplicationDeployment.CurrentDeployment.CurrentVersion;
+                }
+                catch (Exception ex)
+                {
+                    version = Assembly.GetExecutingAssembly().GetName().Version;
+                }
+                var versionString = string.Format("{4} Version: {0}.{1}.{2}.{3}", version.Major, version.Minor, version.Build, version.Revision, Assembly.GetEntryAssembly().GetName().Name);
+                return versionString;
             }
         }
     }
