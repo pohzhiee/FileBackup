@@ -103,6 +103,7 @@ namespace FileBackup.ViewModels
         private readonly DialogService DialogServiceInstance = new DialogService();
         private StreamWriter logFileWriter;
         private int filesProcessed = 0;
+        private static long? totalFiles = null;
 
         //public ICommand FolderSelectButtonPressedCommand => new RelayCommand(() => Console.WriteLine("ASD"), () => true);
         public ICommand FolderSelectCommand => new RelayCommand(() => FolderSelect(), () => true);
@@ -137,12 +138,7 @@ namespace FileBackup.ViewModels
         private async Task DeleteFilesPressedInternal()
         {
             IsBusy = true;
-            int files = await Task.Run(() => Directory.GetFiles(FolderPath, "*.*", SearchOption.AllDirectories).Count());
-            if (files == 0)
-            {
-                IsBusy = false;
-                return;
-            }
+            var countFilesTask =  Task.Run(() => totalFiles = Directory.GetFiles(FolderPath, "*.*", SearchOption.AllDirectories).Count());
             var filePath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
                                                     + "\\zhieepoh\\FileBackup\\DeleteLog.txt";
             logFileWriter = File.AppendText(filePath);
@@ -153,12 +149,20 @@ namespace FileBackup.ViewModels
             {
                 while (IsBusy)
                 {
-                    Progress = filesProcessed * 10000 / files;
-                    FileProgress = $"{filesProcessed}/{files}";
+                    if (totalFiles != null)
+                    {
+                        Progress = filesProcessed * 10000 / (long)totalFiles;
+                        FileProgress = $"{filesProcessed}/{totalFiles}";
+                    }
+                    else
+                    {
+                        FileProgress = $"{filesProcessed}/???";
+                    }
                     await Task.Delay(100);
                 }
             });
             await deleteFileTask;
+            await countFilesTask;
             IsBusy = false;
             await updateProgressTask;
         }

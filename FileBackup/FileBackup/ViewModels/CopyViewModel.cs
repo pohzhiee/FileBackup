@@ -118,6 +118,7 @@ namespace FileBackup.ViewModels
 
         #region PrivateFields
         static private int filesProcessed = 0;
+        static private long? totalFiles = null;
         private readonly DialogService DialogServiceInstance = new DialogService();
         private StreamWriter directoryLogFileWriter;
         private StreamWriter fileLogFileWriter;
@@ -172,39 +173,29 @@ namespace FileBackup.ViewModels
         private async Task CopyButtonInternal()
         {
             IsCopying = true;
-            int files = await Task.Run(()=>Directory.GetFiles(SourcePath, "*.*", SearchOption.AllDirectories).Count());
-            if (files == 0)
-            {
-                IsCopying = false;
-                return;
-            }
+            var countFilesTask = Task.Run(()=>totalFiles = Directory.GetFiles(SourcePath, "*.*", SearchOption.AllDirectories).Count());
             directoryLogFileWriter = File.AppendText($"{OutputPath}\\DirectoryLog.txt");
             fileLogFileWriter = File.AppendText($"{OutputPath}\\FileLog.txt");
             await directoryLogFileWriter.WriteLineAsync($"<{DateTime.UtcNow} (UTC)>");
             await fileLogFileWriter.WriteLineAsync($"<{DateTime.UtcNow} (UTC)>");
             Task copyFileTask = Task.Run(async () => await CopyFiles(SourcePath, DestinationPath));
 
-            //  For debugging progress bar
-            //int files = 1000;
-            //Task incrementTask = Task.Run(async () =>
-            //{
-            //    while (filesProcessed < files)
-            //    {
-            //        filesProcessed++;
-            //        await Task.Delay(1);
-            //    }
-            //});
-
             Task updateProgressTask = Task.Run(async () =>
             {
                 while (IsCopying)
                 {
-                    Progress = filesProcessed * 10000 / files;
-                    FileProgress = $"{filesProcessed}/{files}";
+                    if (totalFiles != null)
+                    {
+                        Progress = filesProcessed * 10000 / (long)totalFiles;
+                        FileProgress = $"{filesProcessed}/{totalFiles}";
+                    }
+                    else
+                        FileProgress = $"{filesProcessed}/???";
                     await Task.Delay(100);
                 }
             });
             await copyFileTask;
+            await countFilesTask;
             IsCopying = false;
             await updateProgressTask;
         }
