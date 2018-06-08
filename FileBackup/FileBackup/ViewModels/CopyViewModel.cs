@@ -130,10 +130,13 @@ namespace FileBackup.ViewModels
 
         private async Task CopyButtonInternal()
         {
-            int files = Directory.GetFiles(SourcePath, "*.*", SearchOption.AllDirectories).Count();
-            if (files == 0)
-                return;
             IsCopying = true;
+            int files = await Task.Run(()=>Directory.GetFiles(SourcePath, "*.*", SearchOption.AllDirectories).Count());
+            if (files == 0)
+            {
+                IsCopying = false;
+                return;
+            }
             directoryLogFileWriter = File.AppendText($"{OutputPath}\\DirectoryLog.txt");
             fileLogFileWriter = File.AppendText($"{OutputPath}\\FileLog.txt");
             await directoryLogFileWriter.WriteLineAsync($"<{DateTime.UtcNow} (UTC)>");
@@ -160,7 +163,7 @@ namespace FileBackup.ViewModels
                     await Task.Delay(100);
                 }
             });
-            copyFileTask.GetAwaiter().GetResult();
+            await copyFileTask;
             IsCopying = false;
             await updateProgressTask;
         }

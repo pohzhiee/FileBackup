@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using System.IO;
 using System.Diagnostics;
-using WinForms = System.Windows.Forms;
 using System.Globalization;
 using Ookii.Dialogs.Wpf;
 
@@ -26,6 +25,7 @@ namespace FileBackup.ViewModels
         }
         static readonly String settingsPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
                                                     + "\\zhieepoh\\FileBackup\\deleteSettings.dat";
+        #region Public Properties
         private bool _isBusy = false;
         public bool IsBusy
         {
@@ -77,6 +77,7 @@ namespace FileBackup.ViewModels
             set { _date = value.Date;
                 NotifyPropertyChanged(); }
         }
+        #endregion
 
         private StreamWriter logFileWriter;
         private int filesProcessed = 0;
@@ -96,10 +97,13 @@ namespace FileBackup.ViewModels
 
         private async Task DeleteFilesPressedInternal()
         {
-            int files = Directory.GetFiles(FolderPath, "*.*", SearchOption.AllDirectories).Count();
-            if (files == 0)
-                return;
             IsBusy = true;
+            int files = await Task.Run(() => Directory.GetFiles(FolderPath, "*.*", SearchOption.AllDirectories).Count());
+            if (files == 0)
+            {
+                IsBusy = false;
+                return;
+            }
             var filePath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
                                                     + "\\zhieepoh\\FileBackup\\DeleteLog.txt";
             logFileWriter = File.AppendText(filePath);
@@ -115,7 +119,7 @@ namespace FileBackup.ViewModels
                     await Task.Delay(100);
                 }
             });
-            deleteFileTask.GetAwaiter().GetResult();
+            await deleteFileTask;
             IsBusy = false;
             await updateProgressTask;
         }
