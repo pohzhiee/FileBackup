@@ -4,6 +4,7 @@ using System.ComponentModel;
 using FileBackup.ViewModels;
 using System.Diagnostics;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows.Controls;
 
 namespace FileBackup.Views
@@ -20,11 +21,12 @@ namespace FileBackup.Views
             this.Closing += CopyWindow_Closing;
         }
 
-        private void OnPathChanged(object sender, EventArgs e)
+        private async void OnPathChanged(object sender, EventArgs e)
         {
             var textBox = (TextBox)sender;
             var dir = textBox.Text;
-            if (!Directory.Exists(dir))
+            bool dirExists = await Task.Run(() => Directory.Exists(dir));
+            if (!dirExists)
             {
                 textBox.Background = System.Windows.Media.Brushes.Red;
                 textBox.ToolTip = "Invalid file path";
@@ -34,12 +36,6 @@ namespace FileBackup.Views
                 textBox.Background = System.Windows.Media.Brushes.White;
                 textBox.ToolTip = "";
             }
-        }
-
-
-        private bool IsValidPath(String Path)
-        {
-            return Directory.Exists(Path);
         }
 
         private void CopyWindow_Closing(object sender, CancelEventArgs e)
