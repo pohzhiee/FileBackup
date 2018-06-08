@@ -35,7 +35,10 @@
         <!-- File Menu -->
         <Menu DockPanel.Dock="Top" Margin="0,0,0.4,0">
             <MenuItem Header="File">
-                <MenuItem Header="Exit" Command="{Binding ExitCmd}" InputGestureText="Alt+F4"/>
+                <MenuItem Header="Exit" 
+                          Command="{Binding ExitCmd}" 
+                          InputGestureText="Alt+F4"
+                          HorizontalAlignment="Left"/>
             </MenuItem>
             <MenuItem Header="About" Command="{Binding ShowAboutDialogCmd}"/>
         </Menu>

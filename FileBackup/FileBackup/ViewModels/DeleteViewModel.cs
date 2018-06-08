@@ -2,7 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Deployment.Application;
+using System.Reflection;
 using System.Windows;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -10,6 +11,8 @@ using System.IO;
 using System.Diagnostics;
 using System.Globalization;
 using Ookii.Dialogs.Wpf;
+using MvvmDialogs;
+using FileBackup.Views;
 
 namespace FileBackup.ViewModels
 {
@@ -77,14 +80,50 @@ namespace FileBackup.ViewModels
             set { _date = value.Date;
                 NotifyPropertyChanged(); }
         }
+
+        public String VersionText
+        {
+            get
+            {
+                Version version;
+                try
+                {
+                    version = ApplicationDeployment.CurrentDeployment.CurrentVersion;
+                }
+                catch (Exception ex)
+                {
+                    version = Assembly.GetExecutingAssembly().GetName().Version;
+                }
+                var versionString = string.Format("{4} Version: {0}.{1}.{2}.{3}", version.Major, version.Minor, version.Build, version.Revision, Assembly.GetEntryAssembly().GetName().Name);
+                return versionString;
+            }
+        }
         #endregion
 
+        private readonly DialogService DialogServiceInstance = new DialogService();
         private StreamWriter logFileWriter;
         private int filesProcessed = 0;
 
         //public ICommand FolderSelectButtonPressedCommand => new RelayCommand(() => Console.WriteLine("ASD"), () => true);
         public ICommand FolderSelectCommand => new RelayCommand(() => FolderSelect(), () => true);
         public ICommand DeleteFilesCommand => new RelayCommand(async () => await DeleteFilesPressed());
+        public ICommand ShowAboutDialogCommand =>  new RelayCommand(ShowAboutDialog, ()=>true);
+        public ICommand BackCommand => new RelayCommand(Back, () => true);
+        public ICommand ExitCommand => new RelayCommand(() => App.app.Close(), () => true);
+
+        private void Back()
+        {
+            var mainWindow = new MainWindow();
+            App.app.Close();
+            App.app = mainWindow;
+            App.app.Show();
+        }
+
+        private void ShowAboutDialog()
+        {
+            AboutViewModel dialog = new AboutViewModel();
+            var result = DialogServiceInstance.ShowDialog<About>(this, dialog);
+        }
 
         private void FolderSelect()
         {
@@ -161,6 +200,7 @@ namespace FileBackup.ViewModels
                 filesProcessed = 0;
                 FileProgress = "";
                 logFileWriter.Close();
+                Serialize();
             }
         }
 

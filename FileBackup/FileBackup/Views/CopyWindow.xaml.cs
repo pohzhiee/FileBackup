@@ -27,10 +27,12 @@ namespace FileBackup.Views
             if (!Directory.Exists(dir))
             {
                 textBox.Background = System.Windows.Media.Brushes.Red;
+                textBox.ToolTip = "Invalid file path";
             }
             else
             {
                 textBox.Background = System.Windows.Media.Brushes.White;
+                textBox.ToolTip = "";
             }
         }
 

@@ -4,13 +4,13 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:FileBackup.Views"
-        xmlns:viewModels="clr-namespace:FileBackup.ViewModels"
+        xmlns:viewModels="clr-namespace:FileBackup.ViewModels;assembly=FileBackup"
         xmlns:converters="clr-namespace:FileBackup.Converters;assembly="
         xmlns:md="https://github.com/fantasticfiasco/mvvm-dialogs"
         md:DialogServiceViews.IsRegistered="True"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance viewModels:DeleteViewModel}"
-        Title="DeleteWindow" Height="180" Width="400">
+        Title="DeleteWindow" Height="205" Width="400">
     <Window.Resources>
         <Style x:Key="LabelStyle" TargetType="Label">
             <Setter Property="FontSize" Value="14" />
@@ -30,81 +30,95 @@
         <BitmapImage x:Key="OpenFolderIconSource" UriSource="../Icons/OpenFolderIcon.png" />
         <converters:InverseBoolConverter x:Key="inverseBoolConverter" />
     </Window.Resources>
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="Auto"/>
-        </Grid.ColumnDefinitions>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
+    <DockPanel>
+        <!-- File Menu -->
+        <Menu DockPanel.Dock="Top" Margin="0,0,0.4,0" HorizontalContentAlignment="Left">
+            <MenuItem Header="File">
+                <MenuItem Header="Back to Main Menu" Command="{Binding BackCommand}" />
+                <MenuItem Header="Exit" Command="{Binding ExitCommand}" />
+            </MenuItem>
+            <MenuItem Header="About" Command="{Binding ShowAboutDialogCommand}"/>
+        </Menu>
 
-        <Label Content="Folder Path" 
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Label Content="Folder Path" 
                Style="{StaticResource LabelStyle}"
                Grid.Row="0"
                Grid.Column="0"/>
-        <TextBox Text="{Binding FolderPath}" 
+            <TextBox Text="{Binding FolderPath}" 
                  TextChanged="OnPathChanged"
                  Style="{StaticResource TextBoxStyle}"
                  Grid.Row="0"
                  Grid.Column="1"/>
-        <Button Grid.Row="0"
+            <Button Grid.Row="0"
                 Grid.Column="2"
                 Margin="5"
                 Command="{Binding FolderSelectCommand}">
-            <Image Source="{StaticResource OpenFolderIconSource}"
+                <Image Source="{StaticResource OpenFolderIconSource}"
                     Style="{StaticResource IconStyle}"/>
-        </Button>
-        
-        <Label Content="Date"
+            </Button>
+
+            <Label Content="Date"
                Grid.Row="1"
                Grid.Column="0"
                Style="{StaticResource LabelStyle}"/>
-        <DatePicker SelectedDate="{Binding Date}"
+            <DatePicker SelectedDate="{Binding Date}"
                     Margin="5"
                     Grid.Row="1"
                     Grid.Column="1"
                     Grid.ColumnSpan="2" 
                     VerticalAlignment="Center">
-            <DatePicker.Resources>
-                <Style TargetType="{x:Type DatePickerTextBox}">
-                    <Setter Property="Control.Template">
-                        <Setter.Value>
-                            <ControlTemplate>
-                                <TextBox x:Name="PART_TextBox"
+                <DatePicker.Resources>
+                    <Style TargetType="{x:Type DatePickerTextBox}">
+                        <Setter Property="Control.Template">
+                            <Setter.Value>
+                                <ControlTemplate>
+                                    <TextBox x:Name="PART_TextBox"
+                                         ToolTip="Files before this date will be deleted"
                                         Text="{Binding Path=SelectedDate, StringFormat='dd/MM/yyyy', 
                                         RelativeSource={RelativeSource AncestorType={x:Type DatePicker}}}"
                                         Style="{StaticResource TextBoxStyle}"/>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                </Style>
-            </DatePicker.Resources>
-        </DatePicker>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </DatePicker.Resources>
+            </DatePicker>
 
-        <Label Content="Progress"
+            <Label Content="Progress"
                Style="{StaticResource LabelStyle}"
                Grid.Row="2" />
-        <ProgressBar Value="{Binding Progress}" 
+            <ProgressBar Value="{Binding Progress}" 
                      Height="20"
                      VerticalAlignment="Center"
                      Minimum="0"
                      Maximum="10000"
                      Grid.Column="1"
                      Grid.Row="2"/>
-        <Label Content="{Binding FileProgress}"
+            <Label Content="{Binding FileProgress}"
                VerticalAlignment="Center"
                Grid.Column="2"
                Grid.Row="2" />
 
-        <Button Content="Delete Files" 
+            <Button Content="Delete Files" 
+                FontSize="20"
                 Command="{Binding DeleteFilesCommand}"
+                Background="Aqua"
                 IsEnabled="{Binding IsBusy, Converter={StaticResource inverseBoolConverter}}"
                 Grid.Row="3"
                 Grid.ColumnSpan="3"/>
-    </Grid>
+        </Grid>
+    </DockPanel>
 </Window>
