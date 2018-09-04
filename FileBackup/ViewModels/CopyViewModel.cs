@@ -12,6 +12,7 @@ using FileBackup.Utils;
 using System.Windows.Input;
 using WinForms = System.Windows.Forms;
 using System.Diagnostics;
+using System.Threading;
 using System.Windows;
 using Ookii.Dialogs.Wpf;
 using FileBackup.Views;
@@ -256,7 +257,12 @@ namespace FileBackup.ViewModels
             }
         }
 
-        private void CopyFiles(string sourceDirectory, string destinationDirectory)
+        private SemaphoreSlim readSemaphore = new SemaphoreSlim(5); 
+        private SemaphoreSlim writeSemaphore = new SemaphoreSlim(5);
+        
+        private readonly List<Task> TaskList = new List<Task>();
+
+        private async Task CopyFiles(string sourceDirectory, string destinationDirectory)
         {
             // Get the subdirectories for the specified directory.
 
@@ -305,9 +311,6 @@ namespace FileBackup.ViewModels
             var files = dir.EnumerateFiles();
             foreach (FileInfo sourceFileInfo in files)
             {
-                //stopwatch is for debugging purposes to check performance only
-                var stopwatch = new Stopwatch();
-                stopwatch.Start();
                 string destPath = Path.Combine(destinationDirectory, sourceFileInfo.Name);
                 if (File.Exists(destPath))
                 {
@@ -315,7 +318,6 @@ namespace FileBackup.ViewModels
                     var destFileTime = destFileInfo.LastWriteTime;
                     var sourceFileTime = sourceFileInfo.LastWriteTime;
 
-                    Debug.WriteLine($"Checkpoint 1 (declaration): {stopwatch.Elapsed}");
                     if (destFileTime == sourceFileTime)
                     {
                         //Do nothing because both files are the same
@@ -325,32 +327,34 @@ namespace FileBackup.ViewModels
                     else if (destFileTime > sourceFileTime) //destination file is newer than source file
                     {
                         var message =
-                            $"[Rename] File at {destPath} (edited {sourceFileTime}) copied to {destPath + ".old"}";
+                            $"[Renamed source] File at {destPath} (edited {sourceFileTime}) copied to {destPath + ".old"}";
                         fileLogFileWriter.WriteLine(message);
                         AddToLog(message);
 
                         FilesProcessed++;
-                        sourceFileInfo.CopyTo(destPath + ".old", true);
+
+                        await QueueCopy($"{destPath}.old", sourceFileInfo.FullName);
+                        //sourceFileInfo.CopyTo(destPath + ".old", true);
                     }
                     else //destination file is older than source file
                     {
 
-                        Debug.WriteLine($"Checkpoint 2 (if else): {stopwatch.Elapsed}");
                         var message =
-                            $"[Rename] File at {destPath} (edited {destFileTime}) renamed to {destPath + ".old"}";
+                            $"[Renamed destination] File at {destPath} (edited {destFileTime}) renamed to {destPath + ".old"}";
                         fileLogFileWriter.WriteLine(message);
                         AddToLog(message);
 
                         FilesProcessed++;
-                        Debug.WriteLine($"Checkpoint 3 (logging): {stopwatch.Elapsed}");
-                        destFileInfo.CopyTo(destPath + ".old", true);
-                        sourceFileInfo.CopyTo(destPath, true);
-                        Debug.WriteLine($"Checkpoint 4 (actual copying): {stopwatch.Elapsed}");
+
+
+                        var task1 = QueueCopy($"{destPath}.old", destFileInfo.FullName);
+                        var task2 = QueueCopy($"{destPath}", sourceFileInfo.FullName);
+                        await task1;
+                        await task2;
                     }
                 }
                 else //case whereby file does not exist in destination folder
                 {
-                    Debug.WriteLine($"Checkpoint 2 (if else): {stopwatch.Elapsed}");
                     var message = $"[Copy] File {sourceFileInfo.Name} copied to {destPath}";
 
                     Debug.WriteLine(message);
@@ -358,10 +362,7 @@ namespace FileBackup.ViewModels
                     AddToLog(message);
                     FilesProcessed++;
 
-                    Debug.WriteLine($"Checkpoint 3 (logging): {stopwatch.Elapsed}");
-                    
-                    sourceFileInfo.CopyTo(destPath, false);
-                    Debug.WriteLine($"Checkpoint 4 (actual copying): {stopwatch.Elapsed}");
+                    await QueueCopy(destPath, sourceFileInfo.FullName);
                 }
             }
 
@@ -369,10 +370,57 @@ namespace FileBackup.ViewModels
             foreach (DirectoryInfo subdir in dirs)
             {
                 string temppath = Path.Combine(destinationDirectory, subdir.Name);
-                CopyFiles(subdir.FullName, temppath);
+                await CopyFiles(subdir.FullName, temppath);
             }
         }
 
+        private async Task QueueCopy(string dest, string source)
+        {
+            if (TaskList.Count < 6)
+            {
+                TaskList.Add(CopyFile(dest, source));
+            }
+            else
+            {
+                var completed = await Task.WhenAny(TaskList);
+                TaskList.Remove(completed);
+                TaskList.Add(CopyFile(dest, source));
+            }
+
+        }
+        private async Task CopyFile(string dest, string source)
+        {
+
+            await Task.Run(
+                async () =>
+                {
+                    await readSemaphore.WaitAsync();
+                    try
+                    {
+                        var result = File.ReadAllBytes(source);
+                        await Task.Run(
+                            async () =>
+                            {
+                                await writeSemaphore.WaitAsync();
+                                try
+                                {
+                                    File.WriteAllBytes(dest, result);
+                                }
+                                finally
+                                {
+                                    writeSemaphore.Release();
+                                }
+                            }
+                        );
+                    }
+                    finally
+                    {
+                        readSemaphore.Release();
+                    }
+                }
+
+            );
+        }
         private void Deserialize(String filePath)
         {
             using (var data = new BinaryReader(File.OpenRead(filePath)))
