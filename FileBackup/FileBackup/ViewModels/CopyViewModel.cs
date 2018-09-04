@@ -95,24 +95,6 @@ namespace FileBackup.ViewModels
                 NotifyPropertyChanged("Progress");
             }
         }
-
-        public String VersionText
-        {
-            get
-            {
-                Version version;
-                try
-                {
-                    version = ApplicationDeployment.CurrentDeployment.CurrentVersion;
-                }
-                catch (Exception ex)
-                {
-                    version = Assembly.GetExecutingAssembly().GetName().Version;
-                }
-                var versionString = string.Format("{4} Version: {0}.{1}.{2}.{3}", version.Major, version.Minor, version.Build, version.Revision, Assembly.GetEntryAssembly().GetName().Name);
-                return versionString;
-            }
-        }
         #endregion
 
 
@@ -244,6 +226,7 @@ namespace FileBackup.ViewModels
                 Progress = 0;
                 filesProcessed = 0;
                 FileProgress = "";
+                totalFiles = null;
                 createNewDirectory = false;
                 directoryLogFileWriter?.Close();
                 fileLogFileWriter?.Close();
@@ -347,6 +330,7 @@ namespace FileBackup.ViewModels
             var data = new BinaryReader(File.OpenRead(filePath));
             SourcePath = data.ReadString();
             DestinationPath = data.ReadString();
+            data.Close();
         }
 
         public void Serialize()
@@ -354,6 +338,7 @@ namespace FileBackup.ViewModels
             var br = new BinaryWriter(File.OpenWrite(settingsPath));
             br.Write(SourcePath);
             br.Write(DestinationPath);
+            br.Close();
         }
 
     }

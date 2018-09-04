@@ -38,5 +38,10 @@ namespace FileBackup.Views
         {
             ((DeleteViewModel)DataContext).Serialize();
         }
+
+        private void Button_Click()
+        {
+
+        }
     }
 }

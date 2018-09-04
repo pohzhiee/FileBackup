@@ -1,11 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Express 15 for Windows Desktop
+# Visual Studio 15
 VisualStudioVersion = 15.0.27703.2026
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileBackup", "FileBackup\FileBackup\FileBackup.csproj", "{F5322BA3-EFB1-4BF3-B461-CB74C7A49DD1}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileBackup.Test", "FileBackup\FileBackup.Test\FileBackup.Test.csproj", "{93A9625D-7B01-4060-94BB-C6DD4215A4CF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,10 +15,6 @@ Global
 		{F5322BA3-EFB1-4BF3-B461-CB74C7A49DD1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F5322BA3-EFB1-4BF3-B461-CB74C7A49DD1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F5322BA3-EFB1-4BF3-B461-CB74C7A49DD1}.Release|Any CPU.Build.0 = Release|Any CPU
-		{93A9625D-7B01-4060-94BB-C6DD4215A4CF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{93A9625D-7B01-4060-94BB-C6DD4215A4CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{93A9625D-7B01-4060-94BB-C6DD4215A4CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{93A9625D-7B01-4060-94BB-C6DD4215A4CF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

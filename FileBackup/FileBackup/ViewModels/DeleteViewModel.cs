@@ -178,7 +178,7 @@ namespace FileBackup.ViewModels
             {
                 Debug.WriteLine(e);
                 Debug.WriteLine(e.Message);
-                var dialogService = new MvvmDialogs.DialogService();
+                var dialogService = new DialogService();
                 String currentDir = Directory.GetCurrentDirectory();
                 var path = currentDir + "\\ErrorLog.txt";
                 dialogService.ShowMessageBox(this,
@@ -203,6 +203,7 @@ namespace FileBackup.ViewModels
                 Progress = 0;
                 filesProcessed = 0;
                 FileProgress = "";
+                totalFiles = null;
                 logFileWriter.Close();
                 Serialize();
             }
@@ -244,6 +245,7 @@ namespace FileBackup.ViewModels
             FolderPath = data.ReadString();
             var dateString = data.ReadString();
             Date = DateTime.ParseExact(dateString, "O", CultureInfo.InvariantCulture);
+            data.Close();
         }
 
         public void Serialize()
@@ -252,6 +254,7 @@ namespace FileBackup.ViewModels
             br.Write(FolderPath);
             string dateString = Date.ToString("O");
             br.Write(dateString);
+            br.Close();
         }
     }
 }

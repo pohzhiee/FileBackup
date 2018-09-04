@@ -54,6 +54,9 @@ namespace FileBackup
                 MessageBoxButton.OK);
 
             Exception e = (Exception)args.ExceptionObject;
+            var errorWriter = new StreamWriter(path);
+            errorWriter.WriteLine(e);
+            errorWriter.Close();
         }
     }
 }

@@ -1,0 +1,57 @@
+
+        void SetInnerText(object sender, EventArgs args)
+        {
+            var textBox = webBrowser.Document.GetElementById("ContentPlaceHolder1_txtStationUsed");
+            textBox.InnerText = "ts567";
+        }
+
+        void ClickCheckbox(object sender, EventArgs args)
+        {
+            var k = webBrowser.Document.GetElementById("ContentPlaceHolder1_CheckBox1");
+            k.InvokeMember("click");
+        }
+
+        void GetDataFromTable(object sender, EventArgs args)
+        {
+            //var doc = webBrowser.Document;
+            HtmlAgilityPack.HtmlDocument doc = new HtmlAgilityPack.HtmlDocument();
+            doc.Load(webBrowser.DocumentStream);
+
+            var myTable = doc.GetElementbyId("ContentPlaceHolder1_gvEquipment");
+            if (myTable == null)
+                return;
+
+            DataTable otable = new DataTable();
+            otable.Columns.Add("Model", typeof(string));
+            otable.Columns.Add("Serial Number", typeof(string));
+            otable.Columns.Add("Equipment ID", typeof(string));
+            otable.Columns.Add("Station Used", typeof(string));
+            otable.Columns.Add("Description", typeof(string));
+            otable.Columns.Add("Location", typeof(string));
+            otable.Columns.Add("Status", typeof(string));
+            otable.Columns.Add("SubjectToCal", typeof(string));
+            otable.Columns.Add("CalDue  ", typeof(DateTime));
+
+            foreach (var row in myTable.Descendants("tr").ToList())
+            {
+
+                var dataRow = row.SelectNodes("td"); //td is only the data rows, th is header row which we ignore
+                if (dataRow == null || dataRow.Count != 9) //if the row only contains th (header) and no data, we can skip the row
+                    continue;
+                var rowDataArray = dataRow.Select(td => td.InnerText).ToArray(); //Get array of text as data
+                for (int i = 0; i < rowDataArray.Count(); i++) //convert html space (&nbsp;) to null (otherwise will throw when converting to DateTime)
+                {
+                    if (rowDataArray[i] == "&nbsp;")
+                    {
+                        rowDataArray[i] = null;
+                    }
+                    Console.Write($"{rowDataArray[i]}\t");
+                }
+                otable.Rows.Add(rowDataArray);
+                Console.WriteLine();
+            }
+            //Can now make a list out of values in a column like so (using serial number as example):
+            var serialNumberList = new List<string>();
+            foreach(DataRow row in otable.Rows){
+                serialNumberList.Add(row["Serial Number"].ToString());
+            }          
