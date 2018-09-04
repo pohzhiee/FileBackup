@@ -27,7 +27,7 @@ namespace FileBackup.ViewModels
             }
         }
         static readonly String settingsPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
-                                                    + "\\zhieepoh\\FileBackup\\deleteSettings.dat";
+                                                    + "\\FileBackup\\deleteSettings.dat";
         #region Public Properties
         private bool _isBusy = false;
         public bool IsBusy
@@ -140,7 +140,7 @@ namespace FileBackup.ViewModels
             IsBusy = true;
             var countFilesTask =  Task.Run(() => totalFiles = Directory.GetFiles(FolderPath, "*.*", SearchOption.AllDirectories).Count());
             var filePath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
-                                                    + "\\zhieepoh\\FileBackup\\DeleteLog.txt";
+                                                    + "\\FileBackup\\DeleteLog.txt";
             logFileWriter = File.AppendText(filePath);
             await logFileWriter.WriteLineAsync($"<{DateTime.UtcNow} (UTC)>");
 

@@ -26,7 +26,7 @@ namespace FileBackup.ViewModels
             }
         }
         static readonly String settingsPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
-                                                    + "\\zhieepoh\\FileBackup\\copySettings.dat";
+                                                    + "\\FileBackup\\copySettings.dat";
         #region PublicProperties
         public String Title
         {
