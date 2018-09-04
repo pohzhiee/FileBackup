@@ -135,11 +135,6 @@
                       Grid.ColumnSpan="3"
                       Grid.Row="5"
                       Height="300">
-                <ListView.ItemTemplate>
-                    <DataTemplate>
-                        <Label Content="{Binding .}" />
-                    </DataTemplate>
-                </ListView.ItemTemplate>
             </ListView>
         </Grid>
     </DockPanel>

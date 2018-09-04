@@ -108,7 +108,7 @@ namespace FileBackup.ViewModels
 
         #region PrivateFields
 
-        private readonly int logMessageLimit = 100;
+        private readonly int logMessageLimit = 1000;
         private int _filesProcessed = 0;
         private int FilesProcessed
         {
@@ -446,12 +446,14 @@ namespace FileBackup.ViewModels
 
         private void AddToLog(string message)
         {
-            Debug.WriteLine($"Added to log: {message}");
-            if (LogList.Count >= logMessageLimit)
+            while (LogList.Count >= logMessageLimit)
             {
-                LogList.Insert(0, message);
-                LogList.RemoveAt(LogList.Count - 1);
+                Debug.WriteLine($"Removing element");
+                Application.Current.Dispatcher.BeginInvoke((Action) (() => LogList.RemoveAt(LogList.Count - 1)));
             }
+
+            Debug.WriteLine($"Adding to log list");
+            Application.Current.Dispatcher.BeginInvoke((Action)(() => LogList.Insert(0, message)));
         }
 
         private void OnPropertyChanged(object sender, PropertyChangedEventArgs args)
