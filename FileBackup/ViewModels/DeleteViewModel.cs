@@ -241,6 +241,8 @@ namespace FileBackup.ViewModels
 
         private void Deserialize(String filePath)
         {
+            var fileInfo = new FileInfo(filePath);
+            fileInfo.Directory?.Create();
             var data = new BinaryReader(File.OpenRead(filePath));
             FolderPath = data.ReadString();
             var dateString = data.ReadString();
@@ -250,6 +252,8 @@ namespace FileBackup.ViewModels
 
         public void Serialize()
         {
+            var fileInfo = new FileInfo(settingsPath);
+            fileInfo.Directory?.Create();
             var br = new BinaryWriter(File.OpenWrite(settingsPath));
             br.Write(FolderPath);
             string dateString = Date.ToString("O");

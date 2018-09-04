@@ -37,10 +37,7 @@ namespace FileBackup.ViewModels
             {
                 Deserialize(settingsPath);
             }
-
-            readSemaphore = new SemaphoreSlim(numberOfTasks);
-            writeSemaphore = new SemaphoreSlim(numberOfTasks);
-
+            
             PropertyChanged += OnPropertyChanged;
         }
         static readonly String settingsPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
@@ -254,12 +251,11 @@ namespace FileBackup.ViewModels
                 fileLogFileWriter?.Close();
                 directoryLogFileWriter = null;
                 fileLogFileWriter = null;
+                _taskList.Clear();
                 Serialize();
             }
         }
-
-        private readonly SemaphoreSlim readSemaphore;
-        private readonly SemaphoreSlim writeSemaphore;
+        
         
         private readonly List<Task> _taskList = new List<Task>();
 
@@ -322,9 +318,8 @@ namespace FileBackup.ViewModels
                     if (destFileTime == sourceFileTime)
                     {
                         //Do nothing because both files are the same
-                        FilesProcessed++;
+                        //FilesProcessed++;
                     }
-
                     else if (destFileTime > sourceFileTime) //destination file is newer than source file
                     {
                         var message =
@@ -443,7 +438,6 @@ namespace FileBackup.ViewModels
         }*/
         private async Task CopyFile(string dest, string source)
         {
-
             await Task.Run(
                 () =>
                 {
@@ -465,7 +459,7 @@ namespace FileBackup.ViewModels
         public void Serialize()
         {
             var settingsfileInfo = new FileInfo(settingsPath);
-            settingsfileInfo.Directory?.Create();
+            settingsfileInfo.Directory.Create();
 
             using (var br = new BinaryWriter(File.OpenWrite(settingsPath)))
             {
