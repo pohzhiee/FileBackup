@@ -1,10 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Reflection;
 using System.Deployment.Application;
 using System.ComponentModel;
+using System.Configuration;
 using FileBackup.Utils;
 using System.Windows.Input;
 using WinForms = System.Windows.Forms;
@@ -24,6 +27,8 @@ namespace FileBackup.ViewModels
             {
                 Deserialize(settingsPath);
             }
+
+            PropertyChanged += OnPropertyChanged;
         }
         static readonly String settingsPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
                                                     + "\\FileBackup\\copySettings.dat";
@@ -95,16 +100,31 @@ namespace FileBackup.ViewModels
                 NotifyPropertyChanged("Progress");
             }
         }
+
+        public ObservableCollection<string> LogList { get; set; } = new ObservableCollection<string>();
         #endregion
 
 
         #region PrivateFields
-        static private int filesProcessed = 0;
-        static private long? totalFiles = null;
+
+        private readonly int logMessageLimit = 100;
+        private int _filesProcessed = 0;
+        private int FilesProcessed
+        {
+            get => _filesProcessed;
+            set
+            {
+                _filesProcessed = value;
+                NotifyPropertyChanged(nameof(FilesProcessed));
+            }
+        }
+
+        private long? _totalFiles = null;
         private readonly DialogService DialogServiceInstance = new DialogService();
         private StreamWriter directoryLogFileWriter;
         private StreamWriter fileLogFileWriter;
         private bool createNewDirectory = false;
+
         #endregion
 
         public ICommand CopyButtonPressedCommand => new RelayCommand(async()=>await CopyButtonPressed());
@@ -155,31 +175,31 @@ namespace FileBackup.ViewModels
         private async Task CopyButtonInternal()
         {
             IsCopying = true;
-            var countFilesTask = Task.Run(()=>totalFiles = Directory.GetFiles(SourcePath, "*.*", SearchOption.AllDirectories).Count());
+            var countFilesTask = Task.Run(()=>_totalFiles = Directory.EnumerateFiles(SourcePath, "*.*", SearchOption.AllDirectories).Count());
             directoryLogFileWriter = File.AppendText($"{OutputPath}\\DirectoryLog.txt");
             fileLogFileWriter = File.AppendText($"{OutputPath}\\FileLog.txt");
             await directoryLogFileWriter.WriteLineAsync($"<{DateTime.UtcNow} (UTC)>");
             await fileLogFileWriter.WriteLineAsync($"<{DateTime.UtcNow} (UTC)>");
-            Task copyFileTask = Task.Run(async () => await CopyFiles(SourcePath, DestinationPath));
-
-            Task updateProgressTask = Task.Run(async () =>
-            {
-                while (IsCopying)
-                {
-                    if (totalFiles != null)
-                    {
-                        Progress = filesProcessed * 10000 / (long)totalFiles;
-                        FileProgress = $"{filesProcessed}/{totalFiles}";
-                    }
-                    else
-                        FileProgress = $"{filesProcessed}/???";
-                    await Task.Delay(100);
-                }
-            });
+            Task copyFileTask = Task.Run(() => CopyFiles(SourcePath, DestinationPath));
+            
+            //Task updateProgressTask = Task.Run(async () =>
+            //{
+            //    while (IsCopying)
+            //    {
+            //        if (_totalFiles != null)
+            //        {
+            //            Progress = filesProcessed * 10000 / (long)_totalFiles;
+            //            FileProgress = $"{filesProcessed}/{_totalFiles}";
+            //        }
+            //        else
+            //            FileProgress = $"{filesProcessed}/???";
+            //        await Task.Delay(100);
+            //    }
+            //});
             await copyFileTask;
             await countFilesTask;
             IsCopying = false;
-            await updateProgressTask;
+            //await updateProgressTask;
         }
 
         private async Task CopyButtonPressed()
@@ -224,9 +244,9 @@ namespace FileBackup.ViewModels
             {
                 IsCopying = false;
                 Progress = 0;
-                filesProcessed = 0;
+                FilesProcessed = 0;
                 FileProgress = "";
-                totalFiles = null;
+                _totalFiles = null;
                 createNewDirectory = false;
                 directoryLogFileWriter?.Close();
                 fileLogFileWriter?.Close();
@@ -236,7 +256,7 @@ namespace FileBackup.ViewModels
             }
         }
 
-        private async Task CopyFiles(string sourceDirectory, string destinationDirectory)
+        private void CopyFiles(string sourceDirectory, string destinationDirectory)
         {
             // Get the subdirectories for the specified directory.
 
@@ -269,8 +289,10 @@ namespace FileBackup.ViewModels
                 if (createNewDirectory)
                 {
                     Directory.CreateDirectory(destinationDirectory);
-                    Console.WriteLine($"Directory created at {destinationDirectory}");
-                    await directoryLogFileWriter.WriteLineAsync($"Directory created at {destinationDirectory}");
+                    var message = $"Directory created at {destinationDirectory}";
+                    Debug.WriteLine(message);
+                    directoryLogFileWriter.WriteLine(message);
+                    AddToLog(message);
                 }
 
             }
@@ -280,40 +302,66 @@ namespace FileBackup.ViewModels
             }
 
             // Get the files in the directory and copy them to the new location.
-            FileInfo[] files = dir.GetFiles();
+            var files = dir.EnumerateFiles();
             foreach (FileInfo sourceFileInfo in files)
             {
+                //stopwatch is for debugging purposes to check performance only
+                var stopwatch = new Stopwatch();
+                stopwatch.Start();
                 string destPath = Path.Combine(destinationDirectory, sourceFileInfo.Name);
                 if (File.Exists(destPath))
                 {
                     FileInfo destFileInfo = new FileInfo(destPath);
                     var destFileTime = destFileInfo.LastWriteTime;
                     var sourceFileTime = sourceFileInfo.LastWriteTime;
+
+                    Debug.WriteLine($"Checkpoint 1 (declaration): {stopwatch.Elapsed}");
                     if (destFileTime == sourceFileTime)
                     {
                         //Do nothing because both files are the same
-                        filesProcessed++;
+                        FilesProcessed++;
                     }
+
                     else if (destFileTime > sourceFileTime) //destination file is newer than source file
                     {
-                        await fileLogFileWriter.WriteLineAsync($"File at {destPath} (edited {sourceFileTime}) copied to {destPath + ".old"}");
-                        filesProcessed++;
+                        var message =
+                            $"[Rename] File at {destPath} (edited {sourceFileTime}) copied to {destPath + ".old"}";
+                        fileLogFileWriter.WriteLine(message);
+                        AddToLog(message);
+
+                        FilesProcessed++;
                         sourceFileInfo.CopyTo(destPath + ".old", true);
                     }
                     else //destination file is older than source file
                     {
-                        await fileLogFileWriter.WriteLineAsync($"File at {destPath} (edited {destFileTime}) renamed to {destPath + ".old"}");
-                        filesProcessed++;
+
+                        Debug.WriteLine($"Checkpoint 2 (if else): {stopwatch.Elapsed}");
+                        var message =
+                            $"[Rename] File at {destPath} (edited {destFileTime}) renamed to {destPath + ".old"}";
+                        fileLogFileWriter.WriteLine(message);
+                        AddToLog(message);
+
+                        FilesProcessed++;
+                        Debug.WriteLine($"Checkpoint 3 (logging): {stopwatch.Elapsed}");
                         destFileInfo.CopyTo(destPath + ".old", true);
                         sourceFileInfo.CopyTo(destPath, true);
+                        Debug.WriteLine($"Checkpoint 4 (actual copying): {stopwatch.Elapsed}");
                     }
                 }
                 else //case whereby file does not exist in destination folder
                 {
+                    Debug.WriteLine($"Checkpoint 2 (if else): {stopwatch.Elapsed}");
+                    var message = $"[Copy] File {sourceFileInfo.Name} copied to {destPath}";
+
+                    Debug.WriteLine(message);
+                    fileLogFileWriter.WriteLine(message);
+                    AddToLog(message);
+                    FilesProcessed++;
+
+                    Debug.WriteLine($"Checkpoint 3 (logging): {stopwatch.Elapsed}");
+                    
                     sourceFileInfo.CopyTo(destPath, false);
-                    filesProcessed++;
-                    Console.WriteLine($"File {sourceFileInfo.Name} copied to {destPath} PROCESSED:{filesProcessed}");
-                    await fileLogFileWriter.WriteLineAsync($"File {sourceFileInfo.Name} copied to {destPath}");
+                    Debug.WriteLine($"Checkpoint 4 (actual copying): {stopwatch.Elapsed}");
                 }
             }
 
@@ -321,24 +369,59 @@ namespace FileBackup.ViewModels
             foreach (DirectoryInfo subdir in dirs)
             {
                 string temppath = Path.Combine(destinationDirectory, subdir.Name);
-                await CopyFiles(subdir.FullName, temppath);
+                CopyFiles(subdir.FullName, temppath);
             }
         }
 
         private void Deserialize(String filePath)
         {
-            var data = new BinaryReader(File.OpenRead(filePath));
-            SourcePath = data.ReadString();
-            DestinationPath = data.ReadString();
-            data.Close();
+            using (var data = new BinaryReader(File.OpenRead(filePath)))
+            {
+                SourcePath = data.ReadString();
+                DestinationPath = data.ReadString();
+                data.Close();
+            }
         }
 
         public void Serialize()
         {
-            var br = new BinaryWriter(File.OpenWrite(settingsPath));
-            br.Write(SourcePath);
-            br.Write(DestinationPath);
-            br.Close();
+            var settingsfileInfo = new FileInfo(settingsPath);
+            settingsfileInfo.Directory?.Create();
+
+            using (var br = new BinaryWriter(File.OpenWrite(settingsPath)))
+            {
+                br.Write(SourcePath);
+                br.Write(DestinationPath);
+                br.Close();
+            }
+        }
+
+        private void AddToLog(string message)
+        {
+            Debug.WriteLine($"Added to log: {message}");
+            if (LogList.Count >= logMessageLimit)
+            {
+                LogList.Insert(0, message);
+                LogList.RemoveAt(LogList.Count - 1);
+            }
+        }
+
+        private void OnPropertyChanged(object sender, PropertyChangedEventArgs args)
+        {
+            switch (args.PropertyName)
+            {
+                case nameof(FilesProcessed):
+                    if (_totalFiles != null)
+                    {
+                        Progress = FilesProcessed * 10000 / (long) _totalFiles;
+                        FileProgress = $"{FilesProcessed}/{_totalFiles}";
+                    }
+                    else
+                        FileProgress = $"{FilesProcessed}/???";
+                    break;
+                default:
+                    break;
+            }
         }
 
     }

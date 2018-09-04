@@ -11,7 +11,7 @@
         md:DialogServiceViews.IsRegistered="True"
         mc:Ignorable="d"                          
         d:DataContext="{d:DesignInstance viewModels:CopyViewModel}"
-        Title="CopyWindow" Height="240" Width="450">
+        Title="CopyWindow" Height="240" Width="450" SizeToContent="WidthAndHeight">
     <Window.Resources>
         <Style x:Key="LabelStyle" TargetType="Label">
             <Setter Property="FontSize" Value="14" />
@@ -52,6 +52,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <Label Content="Source" 
                Style="{StaticResource LabelStyle}"
@@ -121,12 +122,25 @@
                Grid.Row="3" />
 
             <Button Content="Copy"
-                FontSize="20"
-                Background="Aqua"
-                Grid.ColumnSpan="3"
-                Grid.Row="4"
-                IsEnabled="{Binding IsCopying, Converter={StaticResource inverseBoolConverter}}"
-                Command="{Binding CopyButtonPressedCommand}"/>
+                    FontSize="20"
+                    Background="Aqua"
+                    Grid.Column="0"
+                    Grid.ColumnSpan="3"
+                    Grid.Row="4"
+                    IsEnabled="{Binding IsCopying, Converter={StaticResource inverseBoolConverter}}"
+                    Command="{Binding CopyButtonPressedCommand}"/>
+
+            <ListView ItemsSource="{Binding LogList}"
+                      Grid.Column="0"
+                      Grid.ColumnSpan="3"
+                      Grid.Row="5"
+                      Height="300">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <Label Content="{Binding .}" />
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
         </Grid>
     </DockPanel>
 </Window>
