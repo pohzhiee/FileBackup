@@ -22,12 +22,24 @@ namespace FileBackup.ViewModels
 {
     internal class CopyViewModel : ViewModelBase
     {
+        //-------------- Settings parameters --------------
+
+        private readonly int logMessageLimit = 1000;
+        private readonly int numberOfTasks = 10;
+        //----------------------------
+
+
+
+
         internal CopyViewModel()
         {
             if (File.Exists(settingsPath))
             {
                 Deserialize(settingsPath);
             }
+
+            readSemaphore = new SemaphoreSlim(numberOfTasks);
+            writeSemaphore = new SemaphoreSlim(numberOfTasks);
 
             PropertyChanged += OnPropertyChanged;
         }
@@ -108,7 +120,6 @@ namespace FileBackup.ViewModels
 
         #region PrivateFields
 
-        private readonly int logMessageLimit = 1000;
         private int _filesProcessed = 0;
         private int FilesProcessed
         {
@@ -175,6 +186,9 @@ namespace FileBackup.ViewModels
 
         private async Task CopyButtonInternal()
         {
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
             IsCopying = true;
             var countFilesTask = Task.Run(()=>_totalFiles = Directory.EnumerateFiles(SourcePath, "*.*", SearchOption.AllDirectories).Count());
             directoryLogFileWriter = File.AppendText($"{OutputPath}\\DirectoryLog.txt");
@@ -183,24 +197,11 @@ namespace FileBackup.ViewModels
             await fileLogFileWriter.WriteLineAsync($"<{DateTime.UtcNow} (UTC)>");
             Task copyFileTask = Task.Run(() => CopyFiles(SourcePath, DestinationPath));
             
-            //Task updateProgressTask = Task.Run(async () =>
-            //{
-            //    while (IsCopying)
-            //    {
-            //        if (_totalFiles != null)
-            //        {
-            //            Progress = filesProcessed * 10000 / (long)_totalFiles;
-            //            FileProgress = $"{filesProcessed}/{_totalFiles}";
-            //        }
-            //        else
-            //            FileProgress = $"{filesProcessed}/???";
-            //        await Task.Delay(100);
-            //    }
-            //});
             await copyFileTask;
             await countFilesTask;
             IsCopying = false;
-            //await updateProgressTask;
+            Debug.WriteLine($"Tasklist count: {_taskList.Count}");
+            Debug.WriteLine($"Copying took {stopwatch.Elapsed}");
         }
 
         private async Task CopyButtonPressed()
@@ -257,10 +258,10 @@ namespace FileBackup.ViewModels
             }
         }
 
-        private SemaphoreSlim readSemaphore = new SemaphoreSlim(5); 
-        private SemaphoreSlim writeSemaphore = new SemaphoreSlim(5);
+        private readonly SemaphoreSlim readSemaphore;
+        private readonly SemaphoreSlim writeSemaphore;
         
-        private readonly List<Task> TaskList = new List<Task>();
+        private readonly List<Task> _taskList = new List<Task>();
 
         private async Task CopyFiles(string sourceDirectory, string destinationDirectory)
         {
@@ -376,19 +377,38 @@ namespace FileBackup.ViewModels
 
         private async Task QueueCopy(string dest, string source)
         {
-            if (TaskList.Count < 6)
+            if (_taskList.Count < numberOfTasks)
             {
-                TaskList.Add(CopyFile(dest, source));
+                _taskList.Add(CopyFile(dest, source));
             }
             else
             {
-                var completed = await Task.WhenAny(TaskList);
-                TaskList.Remove(completed);
-                TaskList.Add(CopyFile(dest, source));
+                var completed = await Task.WhenAny(_taskList);
+                _taskList.Remove(completed);
+                _taskList.Add(CopyFile(dest, source));
             }
-
         }
-        private async Task CopyFile(string dest, string source)
+        //private Task CopyFile(string dest, string source)
+        //{
+        //    return Task.Run(
+        //        () =>
+        //        {
+        //            using (var inStream = File.OpenRead(source))
+        //            using (var outStream = File.OpenWrite(dest))
+        //            {
+        //                byte[] buffer = new byte[1 * 1024 * 1024]; //read in chunks of 1mb
+        //                int bytesRead = inStream.Read(buffer, 0, buffer.Length);
+        //                while (bytesRead > 0)
+        //                {
+        //                    outStream.Write(buffer, 0, bytesRead);
+
+        //                    bytesRead = inStream.Read(buffer, 0, buffer.Length);
+        //                }
+        //            };
+        //        }
+        //    );
+        //}
+        /*private async Task CopyFile(string dest, string source)
         {
 
             await Task.Run(
@@ -419,6 +439,17 @@ namespace FileBackup.ViewModels
                     }
                 }
 
+            );
+        }*/
+        private async Task CopyFile(string dest, string source)
+        {
+
+            await Task.Run(
+                () =>
+                {
+                        var result = File.ReadAllBytes(source);
+                        File.WriteAllBytes(dest, result);
+                }
             );
         }
         private void Deserialize(String filePath)

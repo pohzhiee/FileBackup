@@ -43,6 +43,8 @@ namespace FileBackup
             //var path = Directory.GetCurrentDirectory() + "\\FileBackupLog\\log.txt";
             var path = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
                                                     + "\\FileBackup\\log.txt";
+            var fileInfo = new FileInfo(path);
+            fileInfo.Directory?.Create();
 
             // Show a message before closing application
             var dialogService = new MvvmDialogs.DialogService();
