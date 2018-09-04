@@ -28,19 +28,18 @@ namespace FileBackup.ViewModels
 
         #endregion
 
-        #region Methods
-
-        #endregion
 
         #region Commands        
         public ICommand ShowAboutDialogCmd { get { return new RelayCommand(OnShowAboutDialog, AlwaysTrue); } }
         public ICommand ExitCmd { get { return new RelayCommand(OnExitApp, AlwaysTrue); } }
         public ICommand CopyCommand => new RelayCommand(onCopyButtonPressed, AlwaysTrue);
         public ICommand DeleteCommand => new RelayCommand(onDeleteButtonPressed, AlwaysTrue);
+        #endregion
 
+        #region Methods
         private bool AlwaysTrue() { return true; }
         private bool AlwaysFalse() { return false; }
-      
+
         private void OnShowAboutDialog()
         {
             AboutViewModel dialog = new AboutViewModel();
@@ -64,10 +63,6 @@ namespace FileBackup.ViewModels
             App.app = deleteWindow;
             App.app.Show();
         }
-        #endregion
-
-        #region Events
-
         #endregion
     }
 }
