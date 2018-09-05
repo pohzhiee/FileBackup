@@ -113,7 +113,7 @@
                      Height="20"
                      VerticalAlignment="Center"
                      Minimum="0"
-                     Maximum="10000"
+                     Maximum="1"
                      Grid.Column="1"
                      Grid.Row="3"/>
             <Label Content="{Binding FileProgress}"
@@ -134,8 +134,7 @@
                       Grid.Column="0"
                       Grid.ColumnSpan="3"
                       Grid.Row="5"
-                      Height="300">
-            </ListView>
+                      Height="300" />
         </Grid>
     </DockPanel>
 </Window>

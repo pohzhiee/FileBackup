@@ -101,8 +101,8 @@ namespace FileBackup.ViewModels
             }
         }
 
-        private long _progress = 0;
-        public long Progress {
+        private double _progress = 0;
+        public double Progress {
             get => _progress;
             set
             {
@@ -117,8 +117,8 @@ namespace FileBackup.ViewModels
 
         #region PrivateFields
 
-        private int _filesProcessed = 0;
-        private int FilesProcessed
+        private long _filesProcessed = 0;
+        private long FilesProcessed
         {
             get => _filesProcessed;
             set
@@ -205,16 +205,9 @@ namespace FileBackup.ViewModels
         {
             try
             {
+                LogList.Clear();
                 await CopyButtonInternal();
-                //await incrementTask; //for debugging progress bar
-            }
-            catch (DirectoryNotFoundException e) //redundant since it is already verified that it exists after scanning the directory for number of files
-            {
-                var dialogService = new MvvmDialogs.DialogService();
-                dialogService.ShowMessageBox(this,
-                    e.Message,
-                    "Directory not found",
-                    MessageBoxButton.OK);
+                await Task.WhenAll(_taskList);
             }
             catch (Exception e)
             {
@@ -459,12 +452,12 @@ namespace FileBackup.ViewModels
         public void Serialize()
         {
             var settingsfileInfo = new FileInfo(settingsPath);
-            settingsfileInfo.Directory.Create();
+            settingsfileInfo.Directory?.Create();
 
             using (var br = new BinaryWriter(File.OpenWrite(settingsPath)))
             {
-                br.Write(SourcePath);
-                br.Write(DestinationPath);
+                br.Write(SourcePath ?? "");
+                br.Write(DestinationPath ?? "");
                 br.Close();
             }
         }
@@ -488,7 +481,7 @@ namespace FileBackup.ViewModels
                 case nameof(FilesProcessed):
                     if (_totalFiles != null)
                     {
-                        Progress = FilesProcessed * 10000 / (long) _totalFiles;
+                        Progress = FilesProcessed / (double)_totalFiles;
                         FileProgress = $"{FilesProcessed}/{_totalFiles}";
                     }
                     else
