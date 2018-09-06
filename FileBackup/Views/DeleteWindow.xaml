@@ -10,7 +10,7 @@
         md:DialogServiceViews.IsRegistered="True"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance viewModels:DeleteViewModel}"
-        Title="DeleteWindow" Height="205" Width="400" SizeToContent="WidthAndHeight">
+        Title="DeleteWindow" Height="500" Width="400" SizeToContent="WidthAndHeight">
     <Window.Resources>
         <Style x:Key="LabelStyle" TargetType="Label">
             <Setter Property="FontSize" Value="14" />

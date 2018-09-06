@@ -11,7 +11,7 @@
         md:DialogServiceViews.IsRegistered="True"
         mc:Ignorable="d"                          
         d:DataContext="{d:DesignInstance viewModels:CopyViewModel}"
-        Title="CopyWindow" Height="240" Width="450" SizeToContent="WidthAndHeight">
+        Title="CopyWindow" Height="550" Width="450" SizeToContent="WidthAndHeight">
     <Window.Resources>
         <Style x:Key="LabelStyle" TargetType="Label">
             <Setter Property="FontSize" Value="14" />

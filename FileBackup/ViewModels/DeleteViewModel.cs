@@ -20,7 +20,6 @@ using FileBackup.Views;
 
 namespace FileBackup.ViewModels
 {
-    //TODO: message prompt to show how many files deleted
     internal class DeleteViewModel : ViewModelBase
     {
 
@@ -134,6 +133,8 @@ namespace FileBackup.ViewModels
 
         private void FolderSelect()
         {
+            //this VistaFolderBrowserDialog is better in the sense that it resembles the normal explorer view more than the default windows 10 folder picker
+            //most significantly the quick access folders on the left for much easier navigation
             VistaFolderBrowserDialog dialog = new VistaFolderBrowserDialog();
             dialog.ShowNewFolderButton = true;
 
