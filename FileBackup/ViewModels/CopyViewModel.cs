@@ -473,7 +473,18 @@ namespace FileBackup.ViewModels
                     try
                     {
                         var result = File.ReadAllBytes(source);
-                        File.WriteAllBytes(dest, result);
+                        var origin = new FileInfo(source);
+
+                        //File.WriteAllBytes(dest, result);
+                        var destFileInfo = new FileInfo(dest);
+                        using (var fileStream = destFileInfo.Create())
+                        {
+                            fileStream.Write(result, 0, result.Length);
+                        }
+
+                        destFileInfo.CreationTime = origin.CreationTime;
+                        destFileInfo.LastWriteTime = origin.LastWriteTime;
+                        destFileInfo.LastAccessTime = origin.LastAccessTime;
                     }
                     catch (Exception e)
                     {
