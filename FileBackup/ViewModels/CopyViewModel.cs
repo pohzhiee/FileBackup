@@ -474,12 +474,26 @@ namespace FileBackup.ViewModels
                     {
                         var result = File.ReadAllBytes(source);
                         var origin = new FileInfo(source);
+                        if (origin.Exists)
+                        {
+                            throw new Exception($"Source file does not exist : {origin.FullName}");
+                        }
 
                         //File.WriteAllBytes(dest, result);
                         var destFileInfo = new FileInfo(dest);
-                        using (var fileStream = destFileInfo.Create())
+                        if (destFileInfo.Exists)
                         {
-                            fileStream.Write(result, 0, result.Length);
+                            using (var fileStream = destFileInfo.OpenWrite())
+                            {
+                                fileStream.Write(result, 0, result.Length);
+                            }
+                        }
+                        else
+                        {
+                            using (var fileStream = destFileInfo.Create())
+                            {
+                                fileStream.Write(result, 0, result.Length);
+                            }
                         }
 
                         destFileInfo.CreationTime = origin.CreationTime;
@@ -489,7 +503,7 @@ namespace FileBackup.ViewModels
                     catch (Exception e)
                     {
                         var message =
-                            $"[Exception] File at {dest} unable to be copied to {dest} due to an exception: {e}";
+                            $"[Exception] File at {source} unable to be copied to {dest} due to an exception: {e}";
                         await logSemaphoreSlim.WaitAsync();
                         try
                         {
