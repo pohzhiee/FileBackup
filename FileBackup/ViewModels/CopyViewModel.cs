@@ -29,7 +29,7 @@ namespace FileBackup.ViewModels
         //----------------------------
 
 
-
+        
 
         internal CopyViewModel()
         {
@@ -117,7 +117,9 @@ namespace FileBackup.ViewModels
 
         #region PrivateFields
 
-        private long _filesProcessed = 0;
+        private SemaphoreSlim logSemaphoreSlim = new SemaphoreSlim(1);
+
+        private long _filesProcessed;
         private long FilesProcessed
         {
             get => _filesProcessed;
@@ -137,7 +139,7 @@ namespace FileBackup.ViewModels
         #endregion
 
         public ICommand CopyButtonPressedCommand => new RelayCommand(async()=>await CopyButtonPressed());
-        public ICommand FolderSelectButtonPressedCommand => new RelayCommand<String>((String id)=>FolderSelectButtonPressed(id), (String a)=>true);
+        public ICommand FolderSelectButtonPressedCommand => new RelayCommand<String>(FolderSelectButtonPressed, (String a)=>true);
         public ICommand ShowAboutDialogCommand => new RelayCommand(ShowAboutDialog, () => true);
         public ICommand BackCommand => new RelayCommand(Back, () => true);
         public ICommand ExitCommand => new RelayCommand(() => App.app.Close(), () => true);
@@ -156,7 +158,7 @@ namespace FileBackup.ViewModels
             var result = DialogServiceInstance.ShowDialog<About>(this, dialog);
         }
 
-        private void FolderSelectButtonPressed(String _id)
+        private void FolderSelectButtonPressed(string _id)
         {
             var id = Int32.Parse(_id);
             VistaFolderBrowserDialog dialog = new VistaFolderBrowserDialog();
@@ -241,7 +243,15 @@ namespace FileBackup.ViewModels
                 _totalFiles = null;
                 createNewDirectory = false;
                 directoryLogFileWriter?.Close();
-                fileLogFileWriter?.Close();
+                await logSemaphoreSlim.WaitAsync();
+                try
+                {
+                    fileLogFileWriter?.Close();
+                }
+                finally
+                {
+                    logSemaphoreSlim.Release();
+                }
                 directoryLogFileWriter = null;
                 fileLogFileWriter = null;
                 _taskList.Clear();
@@ -317,7 +327,16 @@ namespace FileBackup.ViewModels
                     {
                         var message =
                             $"[Renamed source] File at {destPath} (edited {sourceFileTime}) copied to {destPath + ".old"}";
-                        fileLogFileWriter.WriteLine(message);
+
+                        await logSemaphoreSlim.WaitAsync();
+                        try
+                        {
+                            fileLogFileWriter.WriteLine(message);
+                        }
+                        finally
+                        {
+                            logSemaphoreSlim.Release();
+                        }
                         AddToLog(message);
 
                         FilesProcessed++;
@@ -330,7 +349,16 @@ namespace FileBackup.ViewModels
 
                         var message =
                             $"[Renamed destination] File at {destPath} (edited {destFileTime}) renamed to {destPath + ".old"}";
-                        fileLogFileWriter.WriteLine(message);
+
+                        await logSemaphoreSlim.WaitAsync();
+                        try
+                        {
+                            fileLogFileWriter.WriteLine(message);
+                        }
+                        finally
+                        {
+                            logSemaphoreSlim.Release();
+                        }
                         AddToLog(message);
 
                         FilesProcessed++;
@@ -347,7 +375,15 @@ namespace FileBackup.ViewModels
                     var message = $"[Copy] File {sourceFileInfo.Name} copied to {destPath}";
 
                     Debug.WriteLine(message);
-                    fileLogFileWriter.WriteLine(message);
+                    await logSemaphoreSlim.WaitAsync();
+                    try
+                    {
+                        fileLogFileWriter.WriteLine(message);
+                    }
+                    finally
+                    {
+                        logSemaphoreSlim.Release();
+                    }
                     AddToLog(message);
                     FilesProcessed++;
 
@@ -432,10 +468,28 @@ namespace FileBackup.ViewModels
         private async Task CopyFile(string dest, string source)
         {
             await Task.Run(
-                () =>
+                async () =>
                 {
+                    try
+                    {
                         var result = File.ReadAllBytes(source);
                         File.WriteAllBytes(dest, result);
+                    }
+                    catch (Exception e)
+                    {
+                        var message =
+                            $"[Exception] File at {dest} unable to be copied to {dest} due to an exception: {e}";
+                        await logSemaphoreSlim.WaitAsync();
+                        try
+                        {
+                            fileLogFileWriter.WriteLine(message);
+                        }
+                        finally
+                        {
+                            logSemaphoreSlim.Release();
+                        }
+                        AddToLog(message);
+                    }
                 }
             );
         }
@@ -464,14 +518,23 @@ namespace FileBackup.ViewModels
 
         private void AddToLog(string message)
         {
-            while (LogList.Count >= logMessageLimit)
-            {
-                Debug.WriteLine($"Removing element");
-                Application.Current.Dispatcher.BeginInvoke((Action) (() => LogList.RemoveAt(LogList.Count - 1)));
-            }
+            if (LogList == null)
+                return;
 
-            Debug.WriteLine($"Adding to log list");
-            Application.Current.Dispatcher.BeginInvoke((Action)(() => LogList.Insert(0, message)));
+            try
+            {
+                while (LogList.Count >= logMessageLimit)
+                {
+                    Debug.WriteLine($"Removing element");
+                    Application.Current.Dispatcher.BeginInvoke((Action)(() => LogList.RemoveAt(LogList.Count - 1)));
+                }
+
+                Application.Current.Dispatcher.BeginInvoke((Action)(() => LogList.Insert(0, message)));
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine(e);
+            }
         }
 
         private void OnPropertyChanged(object sender, PropertyChangedEventArgs args)
@@ -483,9 +546,13 @@ namespace FileBackup.ViewModels
                     {
                         Progress = FilesProcessed / (double)_totalFiles;
                         FileProgress = $"{FilesProcessed}/{_totalFiles}";
+                        Debug.WriteLine($"Progress: {FilesProcessed}");
                     }
                     else
+                    {
                         FileProgress = $"{FilesProcessed}/???";
+                        Debug.WriteLine($"Progress: {FilesProcessed}");
+                    }
                     break;
                 default:
                     break;

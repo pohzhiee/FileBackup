@@ -111,7 +111,7 @@ namespace FileBackup.ViewModels
         private long? _totalFiles = null;
 
         //public ICommand FolderSelectButtonPressedCommand => new RelayCommand(() => Console.WriteLine("ASD"), () => true);
-        public ICommand FolderSelectCommand => new RelayCommand(() => FolderSelect(), () => true);
+        public ICommand FolderSelectCommand => new RelayCommand(FolderSelect, () => true);
         public ICommand DeleteFilesCommand => new RelayCommand(async () => await DeleteFilesPressed());
         public ICommand ShowAboutDialogCommand =>  new RelayCommand(ShowAboutDialog, ()=>true);
         public ICommand BackCommand => new RelayCommand(Back, () => true);
@@ -240,6 +240,17 @@ namespace FileBackup.ViewModels
                     FilesProcessed++;
                 }
             }
+
+            if (localDeleteCount == initialFileCount - 1)
+            {
+                dir.Delete(false);
+
+                var message = $"Folder {dir.FullName} deleted";
+                Debug.WriteLine(message);
+                await logFileWriter.WriteLineAsync(message);
+                AddToLog(message);
+            }
+
             foreach (DirectoryInfo subdir in dirs)
             {
                 string temppath = Path.Combine(directoryPath, subdir.Name);
@@ -266,7 +277,17 @@ namespace FileBackup.ViewModels
             await Task.Run(
                 () =>
                 {
-                    File.Delete(path);
+                    try
+                    {
+                        File.Delete(path);
+                    }
+                    catch (Exception e)
+                    {
+                        var message = $"[Exception] Unable to delete file at {path}, exception thrown: {e}";
+                        Debug.WriteLine(message);
+                        logFileWriter.WriteLine(message);
+                        AddToLog(message);
+                    }
                 }
             );
         }
