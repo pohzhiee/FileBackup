@@ -472,28 +472,31 @@ namespace FileBackup.ViewModels
                 {
                     try
                     {
+
+                        if (!File.Exists(source))
+                        {
+                            throw new Exception($"Source file does not exist : {source}");
+                        }
                         var result = File.ReadAllBytes(source);
                         var origin = new FileInfo(source);
-                        if (origin.Exists)
-                        {
-                            throw new Exception($"Source file does not exist : {origin.FullName}");
-                        }
 
+                        FileInfo destFileInfo = null;
                         //File.WriteAllBytes(dest, result);
-                        var destFileInfo = new FileInfo(dest);
-                        if (destFileInfo.Exists)
+                        if (File.Exists(dest))
                         {
+                            destFileInfo = new FileInfo(dest);
                             using (var fileStream = destFileInfo.OpenWrite())
                             {
                                 fileStream.Write(result, 0, result.Length);
                             }
                         }
-                        else
+                        else 
                         {
-                            using (var fileStream = destFileInfo.Create())
+                            using (var fileStream = File.Create(dest))
                             {
                                 fileStream.Write(result, 0, result.Length);
                             }
+                            destFileInfo = new FileInfo(dest);
                         }
 
                         destFileInfo.CreationTime = origin.CreationTime;
