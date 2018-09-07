@@ -130,6 +130,11 @@ namespace FileBackup.ViewModels
             }
         }
 
+        private long sourceRenamedCount;
+        private long destRenamedCount;
+        private long normalCopyCount;
+        private long doNothingCount;
+
         private long? _totalFiles = null;
         private readonly DialogService DialogServiceInstance = new DialogService();
         private StreamWriter directoryLogFileWriter;
@@ -210,6 +215,8 @@ namespace FileBackup.ViewModels
                 LogList.Clear();
                 await CopyButtonInternal();
                 await Task.WhenAll(_taskList);
+                DialogServiceInstance.ShowMessageBox(this,
+                    $"Source file renamed: {sourceRenamedCount}\nDestination file renamed: {destRenamedCount}\nNormal Copied:{normalCopyCount}\nIgnored:{doNothingCount}");
             }
             catch (Exception e)
             {
@@ -241,6 +248,12 @@ namespace FileBackup.ViewModels
                 FilesProcessed = 0;
                 FileProgress = "";
                 _totalFiles = null;
+
+                sourceRenamedCount = 0;
+                destRenamedCount = 0;
+                normalCopyCount = 0;
+                doNothingCount = 0;
+
                 createNewDirectory = false;
                 directoryLogFileWriter?.Close();
                 await logSemaphoreSlim.WaitAsync();
@@ -321,7 +334,8 @@ namespace FileBackup.ViewModels
                     if (destFileTime == sourceFileTime)
                     {
                         //Do nothing because both files are the same
-                        //FilesProcessed++;
+                        doNothingCount++;
+                        FilesProcessed++;
                     }
                     else if (destFileTime > sourceFileTime) //destination file is newer than source file
                     {
@@ -338,7 +352,7 @@ namespace FileBackup.ViewModels
                             logSemaphoreSlim.Release();
                         }
                         AddToLog(message);
-
+                        sourceRenamedCount++;
                         FilesProcessed++;
 
                         await QueueCopy($"{destPath}.old", sourceFileInfo.FullName);
@@ -360,7 +374,7 @@ namespace FileBackup.ViewModels
                             logSemaphoreSlim.Release();
                         }
                         AddToLog(message);
-
+                        destRenamedCount++;
                         FilesProcessed++;
 
 
@@ -385,6 +399,7 @@ namespace FileBackup.ViewModels
                         logSemaphoreSlim.Release();
                     }
                     AddToLog(message);
+                    doNothingCount++;
                     FilesProcessed++;
 
                     await QueueCopy(destPath, sourceFileInfo.FullName);
