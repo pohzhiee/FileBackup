@@ -130,16 +130,16 @@ namespace FileBackup.ViewModels
             }
         }
 
-        private long sourceRenamedCount;
-        private long destRenamedCount;
-        private long normalCopyCount;
-        private long doNothingCount;
+        private long _sourceRenamedCount;
+        private long _destRenamedCount;
+        private long _normalCopyCount;
+        private long _doNothingCount;
 
         private long? _totalFiles = null;
-        private readonly DialogService DialogServiceInstance = new DialogService();
-        private StreamWriter directoryLogFileWriter;
-        private StreamWriter fileLogFileWriter;
-        private bool createNewDirectory = false;
+        private readonly DialogService _dialogServiceInstance = new DialogService();
+        private StreamWriter _directoryLogFileWriter;
+        private StreamWriter _fileLogFileWriter;
+        private bool _createNewDirectory = false;
 
         #endregion
 
@@ -160,7 +160,7 @@ namespace FileBackup.ViewModels
         private void ShowAboutDialog()
         {
             AboutViewModel dialog = new AboutViewModel();
-            var result = DialogServiceInstance.ShowDialog<About>(this, dialog);
+            var result = _dialogServiceInstance.ShowDialog<About>(this, dialog);
         }
 
         private void FolderSelectButtonPressed(string _id)
@@ -195,10 +195,10 @@ namespace FileBackup.ViewModels
 
             IsCopying = true;
             var countFilesTask = Task.Run(()=>_totalFiles = Directory.EnumerateFiles(SourcePath, "*.*", SearchOption.AllDirectories).Count());
-            directoryLogFileWriter = File.AppendText($"{OutputPath}\\DirectoryLog.txt");
-            fileLogFileWriter = File.AppendText($"{OutputPath}\\FileLog.txt");
-            await directoryLogFileWriter.WriteLineAsync($"<{DateTime.UtcNow} (UTC)>");
-            await fileLogFileWriter.WriteLineAsync($"<{DateTime.UtcNow} (UTC)>");
+            _directoryLogFileWriter = File.AppendText($"{OutputPath}\\DirectoryLog.txt");
+            _fileLogFileWriter = File.AppendText($"{OutputPath}\\FileLog.txt");
+            await _directoryLogFileWriter.WriteLineAsync($"<{DateTime.UtcNow} (UTC)>");
+            await _fileLogFileWriter.WriteLineAsync($"<{DateTime.UtcNow} (UTC)>");
             Task copyFileTask = Task.Run(() => CopyFiles(SourcePath, DestinationPath));
             
             await copyFileTask;
@@ -215,8 +215,8 @@ namespace FileBackup.ViewModels
                 LogList.Clear();
                 await CopyButtonInternal();
                 await Task.WhenAll(_taskList);
-                DialogServiceInstance.ShowMessageBox(this,
-                    $"Source file renamed: {sourceRenamedCount}\nDestination file renamed: {destRenamedCount}\nNormal Copied:{normalCopyCount}\nIgnored:{doNothingCount}");
+                _dialogServiceInstance.ShowMessageBox(this,
+                    $"Source file older: {_sourceRenamedCount}\nDestination file older: {_destRenamedCount}\nNormal Copied:{_normalCopyCount}\nIgnored:{_doNothingCount}");
             }
             catch (Exception e)
             {
@@ -249,24 +249,24 @@ namespace FileBackup.ViewModels
                 FileProgress = "";
                 _totalFiles = null;
 
-                sourceRenamedCount = 0;
-                destRenamedCount = 0;
-                normalCopyCount = 0;
-                doNothingCount = 0;
+                _sourceRenamedCount = 0;
+                _destRenamedCount = 0;
+                _normalCopyCount = 0;
+                _doNothingCount = 0;
 
-                createNewDirectory = false;
-                directoryLogFileWriter?.Close();
+                _createNewDirectory = false;
+                _directoryLogFileWriter?.Close();
                 await logSemaphoreSlim.WaitAsync();
                 try
                 {
-                    fileLogFileWriter?.Close();
+                    _fileLogFileWriter?.Close();
                 }
                 finally
                 {
                     logSemaphoreSlim.Release();
                 }
-                directoryLogFileWriter = null;
-                fileLogFileWriter = null;
+                _directoryLogFileWriter = null;
+                _fileLogFileWriter = null;
                 _taskList.Clear();
                 Serialize();
             }
@@ -291,33 +291,33 @@ namespace FileBackup.ViewModels
             //Prompt for confirmation only if top level directory does not exist
             if (!Directory.Exists(destinationDirectory))
             {
-                if (!createNewDirectory)
+                if (!_createNewDirectory)
                 {
                     var dialog = new MvvmDialogs.DialogService();
                     WinForms.DialogResult dialogResult = WinForms.MessageBox.Show("Destination directory does not exist. Create?", "Create Directory Confirmation", WinForms.MessageBoxButtons.YesNo);
                     if (dialogResult == WinForms.DialogResult.Yes)
                     {
-                        createNewDirectory = true;
+                        _createNewDirectory = true;
                     }
                     else
                     {
-                        createNewDirectory = false;
+                        _createNewDirectory = false;
                         return; //terminate the file copying if not creating new directory at destination
                     }
                 }
-                if (createNewDirectory)
+                if (_createNewDirectory)
                 {
                     Directory.CreateDirectory(destinationDirectory);
                     var message = $"Directory created at {destinationDirectory}";
                     Debug.WriteLine(message);
-                    directoryLogFileWriter.WriteLine(message);
+                    _directoryLogFileWriter.WriteLine(message);
                     AddToLog(message);
                 }
 
             }
             else //top level directory exists
             {
-                createNewDirectory = true;
+                _createNewDirectory = true;
             }
 
             // Get the files in the directory and copy them to the new location.
@@ -334,7 +334,7 @@ namespace FileBackup.ViewModels
                     if (destFileTime == sourceFileTime)
                     {
                         //Do nothing because both files are the same
-                        doNothingCount++;
+                        _doNothingCount++;
                         FilesProcessed++;
                     }
                     else if (destFileTime > sourceFileTime) //destination file is newer than source file
@@ -345,18 +345,17 @@ namespace FileBackup.ViewModels
                         await logSemaphoreSlim.WaitAsync();
                         try
                         {
-                            fileLogFileWriter.WriteLine(message);
+                            _fileLogFileWriter.WriteLine(message);
                         }
                         finally
                         {
                             logSemaphoreSlim.Release();
                         }
                         AddToLog(message);
-                        sourceRenamedCount++;
+                        _sourceRenamedCount++;
                         FilesProcessed++;
 
                         await QueueCopy($"{destPath}.old", sourceFileInfo.FullName);
-                        //sourceFileInfo.CopyTo(destPath + ".old", true);
                     }
                     else //destination file is older than source file
                     {
@@ -367,14 +366,14 @@ namespace FileBackup.ViewModels
                         await logSemaphoreSlim.WaitAsync();
                         try
                         {
-                            fileLogFileWriter.WriteLine(message);
+                            _fileLogFileWriter.WriteLine(message);
                         }
                         finally
                         {
                             logSemaphoreSlim.Release();
                         }
                         AddToLog(message);
-                        destRenamedCount++;
+                        _destRenamedCount++;
                         FilesProcessed++;
 
 
@@ -392,14 +391,14 @@ namespace FileBackup.ViewModels
                     await logSemaphoreSlim.WaitAsync();
                     try
                     {
-                        fileLogFileWriter.WriteLine(message);
+                        _fileLogFileWriter.WriteLine(message);
                     }
                     finally
                     {
                         logSemaphoreSlim.Release();
                     }
                     AddToLog(message);
-                    doNothingCount++;
+                    _normalCopyCount++;
                     FilesProcessed++;
 
                     await QueueCopy(destPath, sourceFileInfo.FullName);
@@ -525,7 +524,7 @@ namespace FileBackup.ViewModels
                         await logSemaphoreSlim.WaitAsync();
                         try
                         {
-                            fileLogFileWriter.WriteLine(message);
+                            _fileLogFileWriter.WriteLine(message);
                         }
                         finally
                         {
