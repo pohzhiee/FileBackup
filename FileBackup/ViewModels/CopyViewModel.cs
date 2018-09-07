@@ -141,6 +141,11 @@ namespace FileBackup.ViewModels
         private StreamWriter _fileLogFileWriter;
         private bool _createNewDirectory = false;
 
+        //Verification stuff
+        private List<string> _availableDirectoryList = new List<string>();
+        private List<string> _processedDirectoryList = new List<string>();
+
+
         #endregion
 
         public ICommand CopyButtonPressedCommand => new RelayCommand(async()=>await CopyButtonPressed());
@@ -195,6 +200,7 @@ namespace FileBackup.ViewModels
 
             IsCopying = true;
             var countFilesTask = Task.Run(()=>_totalFiles = Directory.EnumerateFiles(SourcePath, "*.*", SearchOption.AllDirectories).Count());
+            var getDirectoriesTask = Task.Run(() => GetDirectoryList(SourcePath));
             _directoryLogFileWriter = File.AppendText($"{OutputPath}\\DirectoryLog.txt");
             _fileLogFileWriter = File.AppendText($"{OutputPath}\\FileLog.txt");
             await _directoryLogFileWriter.WriteLineAsync($"<{DateTime.UtcNow} (UTC)>");
@@ -206,6 +212,34 @@ namespace FileBackup.ViewModels
             IsCopying = false;
             Debug.WriteLine($"Tasklist count: {_taskList.Count}");
             Debug.WriteLine($"Copying took {stopwatch.Elapsed}");
+
+            await Task.WhenAll(_taskList);
+            var message =
+                $"Source file older: {_sourceRenamedCount}\nDestination file older: {_destRenamedCount}\nNormal Copied:{_normalCopyCount}\nIgnored:{_doNothingCount}";
+            AddToLog(message);
+            _fileLogFileWriter.WriteLine(message);
+            _dialogServiceInstance.ShowMessageBox(this, message, "Result");
+
+            if (_processedDirectoryList.Count != 0 && _availableDirectoryList.Count != 0)
+            {
+                if (_processedDirectoryList.Count == _availableDirectoryList.Count)
+                {
+                    AddToLog($"Processed directory count: {_processedDirectoryList.Count}, total directory count: {_availableDirectoryList.Count}");
+                }
+                else if (_processedDirectoryList.Count > _availableDirectoryList.Count)
+                {
+                    throw new Exception("Fatal error: Processed directory more than total available directory, please check logic");
+                }
+                else
+                {
+                    AddToLog($"Processed directory count: {_processedDirectoryList.Count}, total directory count: {_availableDirectoryList.Count}");
+                    var diff = _availableDirectoryList.Except(_processedDirectoryList);
+                    foreach (var item in diff)
+                    {
+                        AddToLog($"Directories not processed: {item}");
+                    }
+                }
+            }
         }
 
         private async Task CopyButtonPressed()
@@ -214,9 +248,6 @@ namespace FileBackup.ViewModels
             {
                 LogList.Clear();
                 await CopyButtonInternal();
-                await Task.WhenAll(_taskList);
-                _dialogServiceInstance.ShowMessageBox(this,
-                    $"Source file older: {_sourceRenamedCount}\nDestination file older: {_destRenamedCount}\nNormal Copied:{_normalCopyCount}\nIgnored:{_doNothingCount}");
             }
             catch (Exception e)
             {
@@ -275,10 +306,20 @@ namespace FileBackup.ViewModels
         
         private readonly List<Task> _taskList = new List<Task>();
 
+        private void GetDirectoryList(string sourceDirectory)
+        {
+            _availableDirectoryList.Add(sourceDirectory);
+            var dir = new DirectoryInfo(sourceDirectory);
+            var dirs = dir.GetDirectories();
+            foreach (DirectoryInfo subdir in dirs)
+            {
+                GetDirectoryList(subdir.FullName);
+            }
+        }
+
         private async Task CopyFiles(string sourceDirectory, string destinationDirectory)
         {
             // Get the subdirectories for the specified directory.
-
             if (!Directory.Exists(sourceDirectory))
             {
                 throw new DirectoryNotFoundException(
@@ -339,8 +380,21 @@ namespace FileBackup.ViewModels
                     }
                     else if (destFileTime > sourceFileTime) //destination file is newer than source file
                     {
+                        var newDestFileName = $"{destPath}_old.txt";
+                        //if the destination already has a _old file, check if it is the same as the source file, if same do nothing
+                        if (File.Exists(newDestFileName))
+                        {
+                            var newDestFileInfo = new FileInfo(newDestFileName);
+                            if (newDestFileInfo.LastWriteTime == sourceFileInfo.LastWriteTime)
+                            {
+                                _doNothingCount++;
+                                FilesProcessed++;
+                                continue;
+                            }
+                        }
+
                         var message =
-                            $"[Renamed source] File at {destPath} (edited {sourceFileTime}) copied to {destPath + ".old"}";
+                            $"[Renamed source] File at {destPath} (edited {sourceFileTime}) copied to {newDestFileName}";
 
                         await logSemaphoreSlim.WaitAsync();
                         try
@@ -355,13 +409,15 @@ namespace FileBackup.ViewModels
                         _sourceRenamedCount++;
                         FilesProcessed++;
 
-                        await QueueCopy($"{destPath}.old", sourceFileInfo.FullName);
+                        await QueueCopy(newDestFileName, sourceFileInfo.FullName);
+                        
+                        
                     }
                     else //destination file is older than source file
                     {
 
                         var message =
-                            $"[Renamed destination] File at {destPath} (edited {destFileTime}) renamed to {destPath + ".old"}";
+                            $"[Renamed destination] File at {destPath} (edited {destFileTime}) renamed to {destPath + "_old.txt"}";
 
                         await logSemaphoreSlim.WaitAsync();
                         try
@@ -377,7 +433,7 @@ namespace FileBackup.ViewModels
                         FilesProcessed++;
 
 
-                        var task1 = QueueCopy($"{destPath}.old", destFileInfo.FullName);
+                        var task1 = QueueCopy($"{destPath}_old.txt", destFileInfo.FullName);
                         var task2 = QueueCopy($"{destPath}", sourceFileInfo.FullName);
                         await task1;
                         await task2;
@@ -411,6 +467,7 @@ namespace FileBackup.ViewModels
                 string temppath = Path.Combine(destinationDirectory, subdir.Name);
                 await CopyFiles(subdir.FullName, temppath);
             }
+            _processedDirectoryList.Add(sourceDirectory);
         }
 
         private async Task QueueCopy(string dest, string source)
