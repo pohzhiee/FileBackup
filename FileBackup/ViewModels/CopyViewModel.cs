@@ -119,6 +119,7 @@ namespace FileBackup.ViewModels
 
         private SemaphoreSlim logSemaphoreSlim = new SemaphoreSlim(1);
         private SemaphoreSlim uiLogSemaphore = new SemaphoreSlim(1);
+        private SemaphoreSlim taskSemaphore = new SemaphoreSlim(1);
 
         private long _filesProcessed;
         private long FilesProcessed
@@ -473,15 +474,23 @@ namespace FileBackup.ViewModels
 
         private async Task QueueCopy(string dest, string source)
         {
-            if (_taskList.Count < numberOfTasks)
+            await taskSemaphore.WaitAsync();
+            try
             {
-                _taskList.Add(CopyFile(dest, source));
+                if (_taskList.Count < numberOfTasks)
+                {
+                    _taskList.Add(CopyFile(dest, source));
+                }
+                else
+                {
+                    var completed = await Task.WhenAny(_taskList);
+                    _taskList.Remove(completed);
+                    _taskList.Add(CopyFile(dest, source));
+                }
             }
-            else
+            finally
             {
-                var completed = await Task.WhenAny(_taskList);
-                _taskList.Remove(completed);
-                _taskList.Add(CopyFile(dest, source));
+                taskSemaphore.Release();
             }
         }
         //private Task CopyFile(string dest, string source)
