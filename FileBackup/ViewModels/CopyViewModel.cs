@@ -118,6 +118,7 @@ namespace FileBackup.ViewModels
         #region PrivateFields
 
         private SemaphoreSlim logSemaphoreSlim = new SemaphoreSlim(1);
+        private SemaphoreSlim uiLogSemaphore = new SemaphoreSlim(1);
 
         private long _filesProcessed;
         private long FilesProcessed
@@ -216,7 +217,7 @@ namespace FileBackup.ViewModels
             await Task.WhenAll(_taskList);
             var message =
                 $"Source file older: {_sourceRenamedCount}\nDestination file older: {_destRenamedCount}\nNormal Copied:{_normalCopyCount}\nIgnored:{_doNothingCount}";
-            AddToLog(message);
+            await AddToLog(message);
             _fileLogFileWriter.WriteLine(message);
             _dialogServiceInstance.ShowMessageBox(this, message, "Result");
 
@@ -224,7 +225,7 @@ namespace FileBackup.ViewModels
             {
                 if (_processedDirectoryList.Count == _availableDirectoryList.Count)
                 {
-                    AddToLog($"Processed directory count: {_processedDirectoryList.Count}, total directory count: {_availableDirectoryList.Count}");
+                    await AddToLog($"Processed directory count: {_processedDirectoryList.Count}, total directory count: {_availableDirectoryList.Count}");
                 }
                 else if (_processedDirectoryList.Count > _availableDirectoryList.Count)
                 {
@@ -232,11 +233,11 @@ namespace FileBackup.ViewModels
                 }
                 else
                 {
-                    AddToLog($"Processed directory count: {_processedDirectoryList.Count}, total directory count: {_availableDirectoryList.Count}");
+                    await AddToLog($"Processed directory count: {_processedDirectoryList.Count}, total directory count: {_availableDirectoryList.Count}");
                     var diff = _availableDirectoryList.Except(_processedDirectoryList);
                     foreach (var item in diff)
                     {
-                        AddToLog($"Directories not processed: {item}");
+                        await AddToLog($"Directories not processed: {item}");
                     }
                 }
             }
@@ -352,7 +353,7 @@ namespace FileBackup.ViewModels
                     var message = $"Directory created at {destinationDirectory}";
                     Debug.WriteLine(message);
                     _directoryLogFileWriter.WriteLine(message);
-                    AddToLog(message);
+                    await AddToLog(message);
                 }
 
             }
@@ -405,7 +406,7 @@ namespace FileBackup.ViewModels
                         {
                             logSemaphoreSlim.Release();
                         }
-                        AddToLog(message);
+                        await AddToLog(message);
                         _sourceRenamedCount++;
                         FilesProcessed++;
 
@@ -428,7 +429,7 @@ namespace FileBackup.ViewModels
                         {
                             logSemaphoreSlim.Release();
                         }
-                        AddToLog(message);
+                        await AddToLog(message);
                         _destRenamedCount++;
                         FilesProcessed++;
 
@@ -453,7 +454,7 @@ namespace FileBackup.ViewModels
                     {
                         logSemaphoreSlim.Release();
                     }
-                    AddToLog(message);
+                    await AddToLog(message);
                     _normalCopyCount++;
                     FilesProcessed++;
 
@@ -512,7 +513,7 @@ namespace FileBackup.ViewModels
                     await readSemaphore.WaitAsync();
                     try
                     {
-                        var result = File.ReadAllBytes(source);
+                        var result = File.ReadAllBytes(source);AddToLog
                         await Task.Run(
                             async () =>
                             {
@@ -587,7 +588,7 @@ namespace FileBackup.ViewModels
                         {
                             logSemaphoreSlim.Release();
                         }
-                        AddToLog(message);
+                        await AddToLog(message);
                     }
                 }
             );
@@ -615,24 +616,28 @@ namespace FileBackup.ViewModels
             }
         }
 
-        private void AddToLog(string message)
+        private async Task AddToLog(string message)
         {
             if (LogList == null)
                 return;
-
+            await uiLogSemaphore.WaitAsync();
             try
             {
                 while (LogList.Count >= logMessageLimit)
                 {
                     Debug.WriteLine($"Removing element");
-                    Application.Current.Dispatcher.BeginInvoke((Action)(() => LogList.RemoveAt(LogList.Count - 1)));
+                    await Application.Current.Dispatcher.BeginInvoke((Action) (() => LogList.RemoveAt(LogList.Count - 1)));
                 }
 
-                Application.Current.Dispatcher.BeginInvoke((Action)(() => LogList.Insert(0, message)));
+                await Application.Current.Dispatcher.BeginInvoke((Action) (() => LogList.Insert(0, message)));
             }
             catch (Exception e)
             {
                 Debug.WriteLine(e);
+            }
+            finally
+            {
+                uiLogSemaphore.Release();
             }
         }
 
